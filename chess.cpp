@@ -15,6 +15,8 @@ enum PieceType
     BISHOP,
     ROOK,
     QUEEN,
+    ARALD,
+    CHANCELLOR,
     KING
 };
 
@@ -93,6 +95,12 @@ public:
                 case KING:
                     pieceChar = 'K';
                     break;
+                case ARALD:
+                    pieceChar = 'A';
+                    break;
+                case CHANCELLOR:
+                    pieceChar = 'H';
+                    break;
                 default:
                     break;
                 }
@@ -129,6 +137,10 @@ public:
             return isValidQueenMove(fromX, fromY, toX, toY);
         case KING:
             return isValidKingMove(fromX, fromY, toX, toY);
+        case ARALD:
+            return isValidAraldMove(fromX, fromY, toX, toY);
+        case CHANCELLOR:
+            return isValidChancellorMove(fromX, fromY, toX, toY);
         default:
             return false;
         }
@@ -219,6 +231,16 @@ private:
         int dx = std::abs(fromX - toX);
         int dy = std::abs(fromY - toY);
         return dx <= 1 && dy <= 1;
+    }
+
+    bool isValidAraldMove(int fromX, int fromY, int toX, int toY)
+    {
+        return isValidBishopMove(fromX, fromY, toX, toY) || isValidRookMove(fromX, fromY, toX, toY);
+    }
+
+    bool isValidChancellorMove(int fromX, int fromY, int toX, int toY)
+    {
+        return isValidRookMove(fromX, fromY, toX, toY) || isValidKnightMove(fromX, fromY, toX, toY);
     }
 };
 
