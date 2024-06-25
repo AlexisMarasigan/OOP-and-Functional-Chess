@@ -1,0 +1,2 @@
+# Simple chess in C++
+ 
