@@ -1,2 +1,1 @@
-# Simple chess in C++
- 
+# Chess implementation in C++, Python and Haskell 
