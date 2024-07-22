@@ -21,12 +21,12 @@ class Piece:
 
     def is_valid_move(self, start_square, end_square):
         raise NotImplementedError("Must be implemented by subclass")
-
+    
 class Pawn(Piece):
     def __str__(self):
         return '♙' if self.color == Color.WHITE else '♟'
 
-    def is_valid_move(self, start_square, end_square):
+    def is_valid_move(self, start_square, end_square, last_move=None):
         direction = 1 if self.color == Color.WHITE else -1
         start_x, start_y = start_square.x, start_square.y
         end_x, end_y = end_square.x, end_square.y
@@ -40,10 +40,19 @@ class Pawn(Piece):
             return True
 
         # Capturing move
-        if abs(start_x - end_x) == 1 and end_y == start_y + direction and end_square.piece and end_square.piece.color != self.color:
-            return True
+        if abs(start_x - end_x) == 1 and end_y == start_y + direction:
+            if end_square.piece and end_square.piece.color != self.color:
+                return True
+            # En passant move
+            if last_move:
+                last_start, last_end = last_move
+                if isinstance(last_end.piece, Pawn) and last_end.piece.color != self.color:
+                    if last_end.x == end_x and abs(last_start.y - last_end.y) == 2:
+                        if last_end.y == start_y:
+                            return True
 
         return False
+
 
 class Rook(Piece):
     def __str__(self):
@@ -122,7 +131,7 @@ class King(Piece):
             return end_square.piece is None or end_square.piece.color != self.color
 
         # Castling move
-        if start_y == end_y and not self.has_moved:
+        if start_y == end_y and not self.has_moved and self.can_castle(start_square, end_square):
             if end_x == start_x + 2:  # Kingside castling
                 rook_square = self.board.get_square(Square.columns[start_x + 3] + str(start_y + 1))
                 if rook_square.piece and isinstance(rook_square.piece, Rook) and not rook_square.piece.has_moved:
@@ -250,8 +259,8 @@ class Board:
         dy = end_y - start_y
 
         steps = max(abs(dx), abs(dy))
-        step_x = dx // steps
-        step_y = dy // steps
+        step_x = dx // steps if steps != 0 else 0
+        step_y = dy // steps if steps != 0 else 0
 
         x, y = start_x, start_y
 
@@ -314,6 +323,66 @@ class Board:
 
         return False
     
+    def is_checkmate(self, color):
+        """Check if the given color is in checkmate."""
+        if not self.is_king_in_check(color):
+            return False
+
+        for square in self.board.values():
+            piece = square.piece
+            if piece and piece.color == color:
+                for x in range(8):
+                    for y in range(8):
+                        target_square = self.board[Square.columns[x] + str(y + 1)]
+                        if piece.is_valid_move(square, target_square):
+                            # Move piece temporarily
+                            original_piece = target_square.piece
+                            target_square.piece = piece
+                            square.piece = None
+
+                            # Check if king is still in check
+                            if not self.is_king_in_check(color):
+                                # Restore the pieces
+                                square.piece = piece
+                                target_square.piece = original_piece
+                                return False
+
+                            # Restore the pieces
+                            square.piece = piece
+                            target_square.piece = original_piece
+
+        return True
+
+    def is_stalemate(self, color):
+        """Check if the given color is in stalemate."""
+        if self.is_king_in_check(color):
+            return False
+
+        for square in self.board.values():
+            piece = square.piece
+            if piece and piece.color == color:
+                for x in range(8):
+                    for y in range(8):
+                        target_square = self.board[Square.columns[x] + str(y + 1)]
+                        if piece.is_valid_move(square, target_square):
+                            # Move piece temporarily
+                            original_piece = target_square.piece
+                            target_square.piece = piece
+                            square.piece = None
+
+                            # Check if king is in check
+                            if not self.is_king_in_check(color):
+                                # Restore the pieces
+                                square.piece = piece
+                                target_square.piece = original_piece
+                                return False
+
+                            # Restore the pieces
+                            square.piece = piece
+                            target_square.piece = original_piece
+
+        return True
+    
 class Move:
     def __init__(self, start_pos, end_pos, piece, captured_piece=None):
         self.start_pos = start_pos
@@ -328,7 +397,7 @@ class Game:
     def __init__(self):
         self.board = Board()
         self.current_turn = Color.WHITE
-        self.moves = []
+        self.last_move = None  # Track the last move
 
     def setup_board(self):
         self.board.setup_board()
@@ -338,21 +407,26 @@ class Game:
 
     def make_move(self, start_square, end_square):
         piece = start_square.piece
-        if piece and isinstance(piece, King) and abs(start_square.x - end_square.x) == 2:
-            if end_square.x == start_square.x + 2:  # Kingside castling
-                rook_square = self.board.get_square(Square.columns[start_square.x + 3] + str(start_square.y + 1))
-                new_rook_square = self.board.get_square(Square.columns[start_square.x + 1] + str(start_square.y + 1))
-            elif end_square.x == start_square.x - 2:  # Queenside castling
-                rook_square =self.board.get_square(Square.columns[start_square.x - 4] + str(start_square.y + 1))
-                new_rook_square = self.board.get_square(Square.columns[start_square.x - 1] + str(start_square.y + 1))
+        if isinstance(piece, King) and abs(start_square.x - end_square.x) == 2:
+            # Handle castling
+            rook_square = self.board.get_square('a' + str(start_square.y + 1)) if end_square.x < start_square.x else self.board.get_square('h' + str(start_square.y + 1))
+            new_rook_square = self.board.get_square(Square.columns[start_square.x - 1] + str(start_square.y + 1)) if end_square.x < start_square.x else self.board.get_square(Square.columns[start_square.x + 1] + str(start_square.y + 1))
             rook = rook_square.piece
             rook_square.piece = None
             new_rook_square.piece = rook
             rook.has_moved = True
 
+        # Handle en passant capture
+        if isinstance(piece, Pawn):
+            direction = 1 if piece.color == Color.WHITE else -1
+            if abs(start_square.x - end_square.x) == 1 and start_square.y + direction == end_square.y and end_square.piece is None:
+                en_passant_square = self.board.get_square(Square.columns[end_square.x] + str(start_square.y + 1))
+                en_passant_square.piece = None
+
         end_square.piece = piece
         start_square.piece = None
         piece.has_moved = True
+        self.last_move = (start_square, end_square)  # Update the last move
 
     def play_move(self, start_pos, end_pos):
         start_square = self.board.get_square(start_pos)
@@ -360,22 +434,11 @@ class Game:
         piece = start_square.piece
 
         if piece and piece.color == self.current_turn:
-            if piece.is_valid_move(start_square, end_square):
+            if piece.is_valid_move(start_square, end_square, self.last_move):  # Pass the last move to the pawn's is_valid_move method
                 self.make_move(start_square, end_square)
                 self.switch_turn()
                 return True
         return False
-
-    def undo_move(self):
-        if not self.moves:
-            return False
-        last_move = self.moves.pop()
-        start_square = self.board.board[last_move.start_pos]
-        end_square = self.board.board[last_move.end_pos]
-        start_square.piece = last_move.piece
-        end_square.piece = last_move.captured_piece
-        self.current_turn = Color.BLACK if self.current_turn == Color.WHITE else Color.WHITE
-        return True
 
     def print_board(self):
         self.board.print_board(self.current_turn)
@@ -384,21 +447,23 @@ class Game:
         print("Welcome to Chess!")
         self.print_board()
         while True:
-            command = input(f"{self.current_turn}'s turn. Enter your move (e.g., e2 e4) or 'undo': ").strip()
-            if command.lower() == 'undo':
-                if self.undo_move():
-                    print("Move undone.")
-                else:
-                    print("No moves to undo.")
-            elif len(command.split()) == 2:
+            if self.board.is_checkmate(self.current_turn):
+                print(f"{self.current_turn} is in checkmate. Game over!")
+                break
+            elif self.board.is_stalemate(self.current_turn):
+                print("Stalemate. Game over!")
+                break
+
+            command = input(f"{self.current_turn}'s turn. Enter your move (e.g., e2 e4) or 'end' to quit: ").strip()
+            if len(command.split()) == 2:
                 start_pos, end_pos = command.split()
                 if self.play_move(start_pos, end_pos):
                     print(f"Moved from {start_pos} to {end_pos}.")
                 else:
                     print("Invalid move. Try again.")
             elif command.lower() == "end":
-                print("You ended the game")
-                return False
+                print("Game ended by user.")
+                break
             else:
                 print("Invalid command. Try again.")
             self.print_board()
