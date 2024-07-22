@@ -19,7 +19,7 @@ class Piece:
         self.board = board
         self.has_moved = False  # Indicates if the piece has moved
 
-    def is_valid_move(self, start_square, end_square):
+    def is_valid_move(self, start_square, end_square, last_move=None):
         raise NotImplementedError("Must be implemented by subclass")
     
 class Pawn(Piece):
@@ -58,7 +58,7 @@ class Rook(Piece):
     def __str__(self):
         return '♖' if self.color == Color.WHITE else '♜'
 
-    def is_valid_move(self, start_square, end_square):
+    def is_valid_move(self, start_square, end_square, last_move=None):
         start_x, start_y = start_square.x, start_square.y
         end_x, end_y = end_square.x, end_square.y
 
@@ -74,7 +74,7 @@ class Knight(Piece):
     def __str__(self):
         return '♘' if self.color == Color.WHITE else '♞'
 
-    def is_valid_move(self, start_square, end_square):
+    def is_valid_move(self, start_square, end_square, last_move=None):
         start_x, start_y = start_square.x, start_square.y
         end_x, end_y = end_square.x, end_square.y
 
@@ -90,7 +90,7 @@ class Bishop(Piece):
     def __str__(self):
         return '♗' if self.color == Color.WHITE else '♝'
 
-    def is_valid_move(self, start_square, end_square):
+    def is_valid_move(self, start_square, end_square, last_move=None):
         start_x, start_y = start_square.x, start_square.y
         end_x, end_y = end_square.x, end_square.y
 
@@ -106,7 +106,7 @@ class Queen(Piece):
     def __str__(self):
         return '♕' if self.color == Color.WHITE else '♛'
 
-    def is_valid_move(self, start_square, end_square):
+    def is_valid_move(self, start_square, end_square, last_move=None):
         start_x, start_y = start_square.x, start_square.y
         end_x, end_y = end_square.x, end_square.y
 
@@ -122,7 +122,7 @@ class King(Piece):
     def __str__(self):
         return '♔' if self.color == Color.WHITE else '♚'
 
-    def is_valid_move(self, start_square, end_square):
+    def is_valid_move(self, start_square, end_square, last_move=None):
         start_x, start_y = start_square.x, start_square.y
         end_x, end_y = end_square.x, end_square.y
 
@@ -405,6 +405,10 @@ class Game:
     def switch_turn(self):
         self.current_turn = Color.BLACK if self.current_turn == Color.WHITE else Color.WHITE
 
+    def undo_move(self):
+        self.make_move(self.last_move.end_pos,self.last_move.start_pos)
+        self.board[self.last_move.end_pos].piece = self.last_move.captured_piece 
+
     def make_move(self, start_square, end_square):
         piece = start_square.piece
         if isinstance(piece, King) and abs(start_square.x - end_square.x) == 2:
@@ -436,6 +440,9 @@ class Game:
         if piece and piece.color == self.current_turn:
             if piece.is_valid_move(start_square, end_square, self.last_move):  # Pass the last move to the pawn's is_valid_move method
                 self.make_move(start_square, end_square)
+                if self.board.is_king_in_check(self.current_turn):
+                    self.undo_move()
+                    return False
                 self.switch_turn()
                 return True
         return False
@@ -453,6 +460,9 @@ class Game:
             elif self.board.is_stalemate(self.current_turn):
                 print("Stalemate. Game over!")
                 break
+
+            if self.board.is_king_in_check(self.current_turn):
+                print(f"{self.current_turn}'s king is in check")
 
             command = input(f"{self.current_turn}'s turn. Enter your move (e.g., e2 e4) or 'end' to quit: ").strip()
             if len(command.split()) == 2:
