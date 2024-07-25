@@ -1,3 +1,5 @@
+from pyfiglet import Figlet
+
 class Color:
     WHITE = 'white'
     BLACK = 'black'
@@ -451,11 +453,12 @@ class Game:
         self.board.print_board(self.current_turn)
 
     def play(self):
-        print("Welcome to Chess!")
+        f = Figlet(font = "slant")
+        print(f.renderText("Welcome to Chess!"))
         self.print_board()
         while True:
             if self.board.is_checkmate(self.current_turn):
-                print(f"{self.current_turn} is in checkmate. Game over!")
+                print(g.renderText(f"{self.current_turn} is in checkmate. Game over!"))
                 break
             elif self.board.is_stalemate(self.current_turn):
                 print("Stalemate. Game over!")
@@ -472,7 +475,7 @@ class Game:
                 else:
                     print("Invalid move. Try again.")
             elif command.lower() == "end":
-                print("Game ended by user.")
+                print(f.renderText("Game ended by user."))
                 break
             else:
                 print("Invalid command. Try again.")
