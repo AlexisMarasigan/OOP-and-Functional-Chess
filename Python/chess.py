@@ -458,7 +458,7 @@ class Game:
         self.print_board()
         while True:
             if self.board.is_checkmate(self.current_turn):
-                print(g.renderText(f"{self.current_turn} is in checkmate. Game over!"))
+                print(f.renderText(f"{self.current_turn} is in checkmate. Game over!"))
                 break
             elif self.board.is_stalemate(self.current_turn):
                 print("Stalemate. Game over!")
